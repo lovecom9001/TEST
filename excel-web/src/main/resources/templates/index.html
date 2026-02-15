@@ -38,6 +38,8 @@
     <h1>Excel to PDF</h1>
     <p class="desc">엑셀 파일을 업로드하고, 셀을 편집한 뒤 PDF로 다운로드하세요.</p>
 
+    <div th:if="${error}" style="padding:12px 16px; background:#ffebee; color:#c62828; border-radius:8px; margin-bottom:20px; font-size:14px; text-align:left;" th:text="${error}"></div>
+
     <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
         <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
             <div class="upload-icon">&#128196;</div>

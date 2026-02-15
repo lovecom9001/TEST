@@ -42,19 +42,27 @@ public class ExcelController {
      */
     @PostMapping("/upload")
     public String upload(@RequestParam("file") MultipartFile file,
-                         HttpSession session, Model model) throws IOException {
-        byte[] fileBytes = file.getBytes();
-        String fileName = file.getOriginalFilename();
+                         HttpSession session, Model model) {
+        try {
+            byte[] fileBytes = file.getBytes();
+            String fileName = file.getOriginalFilename();
 
-        // 세션에 파일 데이터 저장
-        session.setAttribute("fileBytes", fileBytes);
-        session.setAttribute("fileName", fileName);
+            // 세션에 파일 데이터 저장
+            session.setAttribute("fileBytes", fileBytes);
+            session.setAttribute("fileName", fileName);
 
-        List<String> sheetNames = excelService.getSheetNames(file.getInputStream());
-        model.addAttribute("sheetNames", sheetNames);
-        model.addAttribute("fileName", fileName);
+            // 이미 읽은 바이트 배열에서 InputStream 생성 (file.getInputStream() 재사용 방지)
+            List<String> sheetNames = excelService.getSheetNames(
+                    new java.io.ByteArrayInputStream(fileBytes));
+            model.addAttribute("sheetNames", sheetNames);
+            model.addAttribute("fileName", fileName);
 
-        return "sheets";
+            return "sheets";
+        } catch (Exception e) {
+            log.error("파일 업로드 실패: {}", e.getMessage(), e);
+            model.addAttribute("error", "파일을 읽는 중 오류가 발생했습니다: " + e.getMessage());
+            return "index";
+        }
     }
 
     /**
