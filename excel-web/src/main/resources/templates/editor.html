@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>셀 편집 - Excel to PDF</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; min-height: 100vh; padding: 32px; }
+        .container { background: white; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); padding: 32px; max-width: 1100px; margin: 0 auto; }
+        h1 { font-size: 22px; color: #1a1a2e; margin-bottom: 4px; }
+        .info { color: #666; font-size: 14px; margin-bottom: 24px; }
+        .steps { display: flex; gap: 8px; margin-bottom: 24px; }
+        .step { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; }
+        .step.done { background: #4caf50; color: white; }
+        .step.active { background: #4361ee; color: white; }
+
+        /* 테이블 */
+        .table-wrap { overflow-x: auto; margin-bottom: 24px; border: 1px solid #e0e0e0; border-radius: 8px; }
+        table { border-collapse: collapse; width: 100%; min-width: 600px; }
+        th { background: #4361ee; color: white; padding: 10px 12px; font-size: 13px; font-weight: 600; position: sticky; top: 0; }
+        td { padding: 4px; border: 1px solid #e8e8e8; }
+        td.row-header { background: #f5f5f5; text-align: center; font-weight: 600; color: #666; font-size: 13px; width: 50px; padding: 10px 8px; }
+        td input { width: 100%; padding: 8px; border: 1px solid transparent; border-radius: 4px; font-size: 14px; background: transparent; }
+        td input:focus { border-color: #4361ee; background: #f8f9ff; outline: none; }
+        td input.modified { background: #fff8e1; border-color: #ffc107; }
+
+        /* 셀 추가 영역 */
+        .add-cell { background: #f8f9fa; border-radius: 10px; padding: 20px; margin-bottom: 24px; }
+        .add-cell h3 { font-size: 15px; color: #333; margin-bottom: 12px; }
+        .add-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .add-row input { padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        .add-row input.cell-addr { width: 80px; text-transform: uppercase; }
+        .add-row input.cell-val { width: 200px; }
+        .btn-add { padding: 10px 16px; background: #4caf50; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        .btn-add:hover { background: #43a047; }
+
+        /* 버튼 영역 */
+        .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+        .btn { padding: 14px 28px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        .btn-primary { background: #4361ee; color: white; }
+        .btn-primary:hover { background: #3a56d4; }
+        .btn-success { background: #4caf50; color: white; }
+        .btn-success:hover { background: #43a047; }
+        .btn-outline { background: white; color: #666; border: 2px solid #ddd; }
+        .btn-outline:hover { border-color: #4361ee; color: #4361ee; }
+
+        .message { padding: 12px 16px; background: #e8f5e9; color: #2e7d32; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="steps">
+        <div class="step done">&#10003;</div>
+        <div class="step done">&#10003;</div>
+        <div class="step active">3</div>
+    </div>
+
+    <h1>셀 편집 &amp; PDF 다운로드</h1>
+    <p class="info">
+        <span th:text="${fileName}"></span> &rarr;
+        <strong th:text="${sheetName}"></strong>
+    </p>
+
+    <div class="message" th:if="${message}" th:text="${message}"></div>
+
+    <!-- 현재 시트 데이터 테이블 -->
+    <form id="editForm" action="/edit" method="post">
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th th:each="col : ${#numbers.sequence(0, sheetData['maxCol'] - 1)}"
+                            th:text="${T(String).valueOf((char)(65 + col))}">A</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="row, rowStat : ${sheetData['rows']}">
+                        <td class="row-header" th:text="${rowStat.index + 1}">1</td>
+                        <td th:each="cell, colStat : ${row}">
+                            <input type="text"
+                                   th:name="'cell_' + ${T(String).valueOf((char)(65 + colStat.index))} + ${rowStat.index + 1}"
+                                   th:value="${cell}"
+                                   onchange="this.classList.add('modified')">
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 새 셀 추가 -->
+        <div class="add-cell">
+            <h3>새 셀 추가</h3>
+            <div id="newCells">
+                <div class="add-row" style="margin-bottom:8px;">
+                    <input type="text" class="cell-addr" placeholder="예: D1" id="newAddr1" name="">
+                    <input type="text" class="cell-val" placeholder="값 입력" id="newVal1" name="">
+                    <button type="button" class="btn-add" onclick="addNewCellRow()">+ 추가</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button type="submit" class="btn btn-primary" onclick="prepareNewCells()">셀 수정 적용</button>
+            <button type="submit" class="btn btn-success" formaction="/download-pdf">PDF 다운로드</button>
+            <button type="submit" class="btn btn-outline" formaction="/download-excel">엑셀 다운로드</button>
+            <a href="/" class="btn btn-outline" style="text-decoration:none;">처음으로</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    let cellCount = 1;
+
+    function addNewCellRow() {
+        cellCount++;
+        const div = document.createElement('div');
+        div.className = 'add-row';
+        div.style.marginBottom = '8px';
+        div.innerHTML =
+            '<input type="text" class="cell-addr" placeholder="예: E2" id="newAddr' + cellCount + '">' +
+            '<input type="text" class="cell-val" placeholder="값 입력" id="newVal' + cellCount + '">';
+        document.getElementById('newCells').appendChild(div);
+    }
+
+    function prepareNewCells() {
+        // 새 셀 입력값을 hidden input으로 변환
+        for (let i = 1; i <= cellCount; i++) {
+            const addr = document.getElementById('newAddr' + i);
+            const val = document.getElementById('newVal' + i);
+            if (addr && val && addr.value.trim() && val.value.trim()) {
+                addr.name = 'cell_' + addr.value.trim().toUpperCase();
+                addr.value = val.value;
+                val.name = '';  // 중복 방지
+            }
+        }
+    }
+</script>
+</body>
+</html>

@@ -4,3 +4,4 @@ output.pdf
 
 # Java build output
 excel-to-pdf-java/target/
+excel-web/target/
