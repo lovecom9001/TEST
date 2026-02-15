@@ -213,8 +213,14 @@ public class ExcelService {
             Table table = new Table(UnitValue.createPercentArray(colWidths))
                     .useAllAvailableWidth();
 
+            float defaultRowHeight = sheet.getDefaultRowHeightInPoints();
+
             for (int rowIdx = 0; rowIdx <= lastRow; rowIdx++) {
                 Row row = sheet.getRow(rowIdx);
+
+                // ── 엑셀 행 높이 읽기 ──
+                float rowHeightPt = (row != null) ? row.getHeightInPoints() : defaultRowHeight;
+
                 for (int colIdx = 0; colIdx < maxCol; colIdx++) {
                     String key = rowIdx + "," + colIdx;
 
@@ -234,9 +240,23 @@ public class ExcelService {
                     int[] spans = mergeStartMap.get(key);
                     Cell pdfCell = (spans != null) ? new Cell(spans[0], spans[1]) : new Cell();
 
+                    // ── 행 높이 적용 ──
+                    if (spans != null && spans[0] > 1) {
+                        // 병합 셀: 포함된 모든 행의 높이 합산
+                        float totalHeight = 0;
+                        for (int r = rowIdx; r < rowIdx + spans[0]; r++) {
+                            Row spanRow = sheet.getRow(r);
+                            totalHeight += (spanRow != null) ? spanRow.getHeightInPoints() : defaultRowHeight;
+                        }
+                        pdfCell.setMinHeight(totalHeight);
+                    } else {
+                        pdfCell.setMinHeight(rowHeightPt);
+                    }
+
                     pdfCell.add(new Paragraph(cellValue != null ? cellValue : ""))
                            .setPadding(4)
                            .setFontSize(9)
+                           .setVerticalAlignment(VerticalAlignment.MIDDLE)
                            .setBorder(new SolidBorder(new DeviceRgb(180, 180, 180), 0.5f));
 
                     // 엑셀 셀 스타일 반영
