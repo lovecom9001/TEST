@@ -1,3 +1,6 @@
 # Test output files
 sample.xlsx
 output.pdf
+
+# Java build output
+excel-to-pdf-java/target/
