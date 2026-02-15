@@ -53,6 +53,13 @@
             <version>7.2.5</version>
             <type>pom</type>
         </dependency>
+
+        <!-- iText 7 - 한글/CJK 폰트 지원 -->
+        <dependency>
+            <groupId>com.itextpdf</groupId>
+            <artifactId>font-asian</artifactId>
+            <version>7.2.5</version>
+        </dependency>
     </dependencies>
 
     <build>

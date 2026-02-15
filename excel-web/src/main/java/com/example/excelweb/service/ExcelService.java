@@ -1,27 +1,30 @@
 package com.example.excelweb.service;
 
-import com.itextpdf.kernel.colors.ColorConstants;
+import com.itextpdf.kernel.colors.DeviceRgb;
+import com.itextpdf.kernel.font.PdfFont;
+import com.itextpdf.kernel.font.PdfFontFactory;
 import com.itextpdf.kernel.geom.PageSize;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
+import com.itextpdf.layout.borders.Border;
+import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.Cell;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
+import com.itextpdf.layout.properties.VerticalAlignment;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.CellReference;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.xssf.usermodel.XSSFColor;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class ExcelService {
@@ -145,6 +148,9 @@ public class ExcelService {
 
     /**
      * 특정 시트를 PDF 바이트 배열로 변환
+     * - 한글 폰트 지원
+     * - 병합 셀 지원
+     * - 실제 셀 스타일(정렬, 배경색, 볼드, 테두리) 반영
      */
     public byte[] sheetToPdf(byte[] fileBytes, String sheetName) throws IOException {
         try (Workbook workbook = WorkbookFactory.create(new java.io.ByteArrayInputStream(fileBytes))) {
@@ -166,37 +172,76 @@ public class ExcelService {
                 throw new IllegalStateException("시트에 데이터가 없습니다.");
             }
 
+            // ── 병합 셀 정보 수집 ──
+            Map<String, int[]> mergeStartMap = new HashMap<>();  // "row,col" → [rowSpan, colSpan]
+            Set<String> coveredCells = new HashSet<>();
+            for (int i = 0; i < sheet.getNumMergedRegions(); i++) {
+                CellRangeAddress region = sheet.getMergedRegion(i);
+                int fr = region.getFirstRow(), lr = region.getLastRow();
+                int fc = region.getFirstColumn(), lc = region.getLastColumn();
+                mergeStartMap.put(fr + "," + fc, new int[]{lr - fr + 1, lc - fc + 1});
+                for (int r = fr; r <= lr; r++) {
+                    for (int c = fc; c <= lc; c++) {
+                        if (r != fr || c != fc) coveredCells.add(r + "," + c);
+                    }
+                }
+            }
+
+            // ── 컬럼 너비 비율 계산 ──
+            float[] colWidths = new float[maxCol];
+            for (int i = 0; i < maxCol; i++) {
+                colWidths[i] = Math.max(sheet.getColumnWidth(i) / 256f, 2f);
+            }
+
+            // ── 한글 폰트 ──
+            PdfFont font;
+            try {
+                font = PdfFontFactory.createFont("HYGoThic-Medium", "UniKS-UCS2-H");
+            } catch (Exception e) {
+                font = PdfFontFactory.createFont();
+            }
+
+            // ── PDF 문서 생성 ──
             ByteArrayOutputStream pdfBytes = new ByteArrayOutputStream();
             PdfWriter writer = new PdfWriter(pdfBytes);
             PdfDocument pdfDoc = new PdfDocument(writer);
-            Document document = new Document(pdfDoc, PageSize.A4.rotate());
-            document.setMargins(20, 20, 20, 20);
+            Document document = new Document(pdfDoc, PageSize.A4);
+            document.setMargins(30, 30, 30, 30);
+            document.setFont(font);
+            document.setFontSize(9);
 
-            Table table = new Table(UnitValue.createPercentArray(maxCol))
+            Table table = new Table(UnitValue.createPercentArray(colWidths))
                     .useAllAvailableWidth();
 
             for (int rowIdx = 0; rowIdx <= lastRow; rowIdx++) {
                 Row row = sheet.getRow(rowIdx);
                 for (int colIdx = 0; colIdx < maxCol; colIdx++) {
+                    String key = rowIdx + "," + colIdx;
+
+                    // 병합 셀에 의해 가려지는 셀은 건너뛰기
+                    if (coveredCells.contains(key)) continue;
+
                     String cellValue = "";
+                    org.apache.poi.ss.usermodel.Cell excelCell = null;
                     if (row != null) {
-                        org.apache.poi.ss.usermodel.Cell cell = row.getCell(colIdx);
-                        if (cell != null) {
-                            cellValue = getCellValueAsString(cell);
+                        excelCell = row.getCell(colIdx);
+                        if (excelCell != null) {
+                            cellValue = getCellValueAsString(excelCell);
                         }
                     }
 
-                    Cell pdfCell = new Cell()
-                            .add(new Paragraph(cellValue))
-                            .setTextAlignment(TextAlignment.CENTER)
-                            .setPadding(5);
+                    // 병합 셀이면 rowSpan/colSpan 적용
+                    int[] spans = mergeStartMap.get(key);
+                    Cell pdfCell = (spans != null) ? new Cell(spans[0], spans[1]) : new Cell();
 
-                    if (rowIdx == 0) {
-                        pdfCell.setBackgroundColor(ColorConstants.GRAY)
-                                .setFontColor(ColorConstants.WHITE)
-                                .setBold();
-                    } else if (rowIdx % 2 == 0) {
-                        pdfCell.setBackgroundColor(ColorConstants.LIGHT_GRAY);
+                    pdfCell.add(new Paragraph(cellValue != null ? cellValue : ""))
+                           .setPadding(4)
+                           .setFontSize(9)
+                           .setBorder(new SolidBorder(new DeviceRgb(180, 180, 180), 0.5f));
+
+                    // 엑셀 셀 스타일 반영
+                    if (excelCell != null) {
+                        applyCellStyle(pdfCell, excelCell, workbook, font);
                     }
 
                     table.addCell(pdfCell);
@@ -207,6 +252,101 @@ public class ExcelService {
             document.close();
             return pdfBytes.toByteArray();
         }
+    }
+
+    /**
+     * 엑셀 셀 스타일을 PDF 셀에 적용
+     */
+    private void applyCellStyle(Cell pdfCell, org.apache.poi.ss.usermodel.Cell excelCell,
+                                Workbook workbook, PdfFont font) {
+        CellStyle style = excelCell.getCellStyle();
+
+        // 텍스트 정렬
+        switch (style.getAlignment()) {
+            case CENTER: pdfCell.setTextAlignment(TextAlignment.CENTER); break;
+            case RIGHT: pdfCell.setTextAlignment(TextAlignment.RIGHT); break;
+            default: pdfCell.setTextAlignment(TextAlignment.LEFT); break;
+        }
+
+        // 세로 정렬
+        switch (style.getVerticalAlignment()) {
+            case CENTER: pdfCell.setVerticalAlignment(VerticalAlignment.MIDDLE); break;
+            case BOTTOM: pdfCell.setVerticalAlignment(VerticalAlignment.BOTTOM); break;
+            default: pdfCell.setVerticalAlignment(VerticalAlignment.TOP); break;
+        }
+
+        // 볼드, 폰트 크기
+        Font excelFont = workbook.getFontAt(style.getFontIndexAsInt());
+        if (excelFont.getBold()) {
+            pdfCell.setBold();
+        }
+        if (excelFont.getFontHeightInPoints() > 0) {
+            pdfCell.setFontSize(Math.min(excelFont.getFontHeightInPoints(), 14));
+        }
+
+        // 폰트 색상
+        DeviceRgb fontColor = getFontColor(excelFont, workbook);
+        if (fontColor != null) {
+            pdfCell.setFontColor(fontColor);
+        }
+
+        // 배경색
+        if (style.getFillPattern() == FillPatternType.SOLID_FOREGROUND) {
+            DeviceRgb bgColor = poiColorToDeviceRgb(style.getFillForegroundColorColor());
+            if (bgColor != null) {
+                pdfCell.setBackgroundColor(bgColor);
+            }
+        }
+
+        // 테두리 (엑셀에 테두리가 있으면 검은 실선 적용)
+        if (style.getBorderTop() != BorderStyle.NONE ||
+            style.getBorderBottom() != BorderStyle.NONE ||
+            style.getBorderLeft() != BorderStyle.NONE ||
+            style.getBorderRight() != BorderStyle.NONE) {
+            Border border = new SolidBorder(new DeviceRgb(0, 0, 0), 0.5f);
+            if (style.getBorderTop() != BorderStyle.NONE) pdfCell.setBorderTop(border);
+            if (style.getBorderBottom() != BorderStyle.NONE) pdfCell.setBorderBottom(border);
+            if (style.getBorderLeft() != BorderStyle.NONE) pdfCell.setBorderLeft(border);
+            if (style.getBorderRight() != BorderStyle.NONE) pdfCell.setBorderRight(border);
+        }
+    }
+
+    /**
+     * POI Color → iText DeviceRgb 변환
+     */
+    private DeviceRgb poiColorToDeviceRgb(org.apache.poi.ss.usermodel.Color color) {
+        if (color == null) return null;
+        try {
+            if (color instanceof XSSFColor) {
+                byte[] rgb = ((XSSFColor) color).getRGB();
+                if (rgb != null) {
+                    int offset = rgb.length == 4 ? 1 : 0;
+                    return new DeviceRgb(rgb[offset] & 0xFF, rgb[offset + 1] & 0xFF, rgb[offset + 2] & 0xFF);
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    /**
+     * 폰트 색상 추출
+     */
+    private DeviceRgb getFontColor(Font excelFont, Workbook workbook) {
+        try {
+            if (excelFont instanceof org.apache.poi.xssf.usermodel.XSSFFont) {
+                XSSFColor xssfColor = ((org.apache.poi.xssf.usermodel.XSSFFont) excelFont).getXSSFColor();
+                if (xssfColor != null) {
+                    byte[] rgb = xssfColor.getRGB();
+                    if (rgb != null) {
+                        int offset = rgb.length == 4 ? 1 : 0;
+                        int r = rgb[offset] & 0xFF, g = rgb[offset + 1] & 0xFF, b = rgb[offset + 2] & 0xFF;
+                        if (r == 0 && g == 0 && b == 0) return null; // 검정은 기본값이므로 생략
+                        return new DeviceRgb(r, g, b);
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 
     private String getCellValueAsString(org.apache.poi.ss.usermodel.Cell cell) {
