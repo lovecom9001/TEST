@@ -27,10 +27,22 @@ import java.util.Map;
 public class ExcelService {
 
     /**
+     * 컬럼 인덱스를 엑셀 컬럼명으로 변환 (0→A, 25→Z, 26→AA, 27→AB ...)
+     */
+    public static String columnIndexToLetter(int index) {
+        StringBuilder sb = new StringBuilder();
+        while (index >= 0) {
+            sb.insert(0, (char) ('A' + (index % 26)));
+            index = index / 26 - 1;
+        }
+        return sb.toString();
+    }
+
+    /**
      * 엑셀 파일에서 시트 목록 조회
      */
     public List<String> getSheetNames(InputStream inputStream) throws IOException {
-        try (Workbook workbook = new XSSFWorkbook(inputStream)) {
+        try (Workbook workbook = WorkbookFactory.create(inputStream)) {
             List<String> names = new ArrayList<>();
             for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
                 names.add(workbook.getSheetName(i));
@@ -43,7 +55,7 @@ public class ExcelService {
      * 특정 시트의 데이터를 2차원 리스트로 반환
      */
     public Map<String, Object> getSheetData(byte[] fileBytes, String sheetName) throws IOException {
-        try (Workbook workbook = new XSSFWorkbook(new java.io.ByteArrayInputStream(fileBytes))) {
+        try (Workbook workbook = WorkbookFactory.create(new java.io.ByteArrayInputStream(fileBytes))) {
             Sheet sheet = workbook.getSheet(sheetName);
             if (sheet == null) {
                 throw new IllegalArgumentException("시트 '" + sheetName + "'이(가) 존재하지 않습니다.");
@@ -75,9 +87,16 @@ public class ExcelService {
                 rows.add(rowData);
             }
 
+            // 컬럼 헤더 문자열 목록 생성 (A, B, ... Z, AA, AB ...)
+            List<String> colHeaders = new ArrayList<>();
+            for (int j = 0; j < maxCol; j++) {
+                colHeaders.add(columnIndexToLetter(j));
+            }
+
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("sheetName", sheetName);
             result.put("rows", rows);
+            result.put("colHeaders", colHeaders);
             result.put("maxCol", maxCol);
             result.put("maxRow", lastRow + 1);
             return result;
@@ -89,7 +108,7 @@ public class ExcelService {
      */
     public byte[] writeCells(byte[] fileBytes, String sheetName,
                              Map<String, String> cellData) throws IOException {
-        try (Workbook workbook = new XSSFWorkbook(new java.io.ByteArrayInputStream(fileBytes))) {
+        try (Workbook workbook = WorkbookFactory.create(new java.io.ByteArrayInputStream(fileBytes))) {
             Sheet sheet = workbook.getSheet(sheetName);
             if (sheet == null) {
                 throw new IllegalArgumentException("시트 '" + sheetName + "'이(가) 존재하지 않습니다.");
@@ -128,7 +147,7 @@ public class ExcelService {
      * 특정 시트를 PDF 바이트 배열로 변환
      */
     public byte[] sheetToPdf(byte[] fileBytes, String sheetName) throws IOException {
-        try (Workbook workbook = new XSSFWorkbook(new java.io.ByteArrayInputStream(fileBytes))) {
+        try (Workbook workbook = WorkbookFactory.create(new java.io.ByteArrayInputStream(fileBytes))) {
             Sheet sheet = workbook.getSheet(sheetName);
             if (sheet == null) {
                 throw new IllegalArgumentException("시트 '" + sheetName + "'이(가) 존재하지 않습니다.");
@@ -191,21 +210,47 @@ public class ExcelService {
     }
 
     private String getCellValueAsString(org.apache.poi.ss.usermodel.Cell cell) {
-        switch (cell.getCellType()) {
-            case STRING:
-                return cell.getStringCellValue();
-            case NUMERIC:
-                double num = cell.getNumericCellValue();
-                if (num == Math.floor(num)) {
-                    return String.valueOf((long) num);
-                }
-                return String.valueOf(num);
-            case BOOLEAN:
-                return String.valueOf(cell.getBooleanCellValue());
-            case FORMULA:
-                return cell.getCellFormula();
-            default:
-                return "";
+        try {
+            switch (cell.getCellType()) {
+                case STRING:
+                    return cell.getStringCellValue();
+                case NUMERIC:
+                    if (DateUtil.isCellDateFormatted(cell)) {
+                        return cell.getLocalDateTimeCellValue().toString();
+                    }
+                    double num = cell.getNumericCellValue();
+                    if (num == Math.floor(num) && !Double.isInfinite(num)) {
+                        return String.valueOf((long) num);
+                    }
+                    return String.valueOf(num);
+                case BOOLEAN:
+                    return String.valueOf(cell.getBooleanCellValue());
+                case FORMULA:
+                    try {
+                        // 수식 결과값을 가져오기 시도
+                        CellType cachedType = cell.getCachedFormulaResultType();
+                        if (cachedType == CellType.NUMERIC) {
+                            double fnum = cell.getNumericCellValue();
+                            if (fnum == Math.floor(fnum) && !Double.isInfinite(fnum)) {
+                                return String.valueOf((long) fnum);
+                            }
+                            return String.valueOf(fnum);
+                        } else if (cachedType == CellType.STRING) {
+                            return cell.getStringCellValue();
+                        } else if (cachedType == CellType.BOOLEAN) {
+                            return String.valueOf(cell.getBooleanCellValue());
+                        }
+                        return cell.getCellFormula();
+                    } catch (Exception e) {
+                        return cell.getCellFormula();
+                    }
+                case ERROR:
+                    return "#ERROR";
+                default:
+                    return "";
+            }
+        } catch (Exception e) {
+            return "";
         }
     }
 }

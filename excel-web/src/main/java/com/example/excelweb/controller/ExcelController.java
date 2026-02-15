@@ -10,6 +10,9 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -17,6 +20,8 @@ import java.util.Map;
 
 @Controller
 public class ExcelController {
+
+    private static final Logger log = LoggerFactory.getLogger(ExcelController.class);
 
     private final ExcelService excelService;
 
@@ -57,7 +62,7 @@ public class ExcelController {
      */
     @PostMapping("/sheet")
     public String selectSheet(@RequestParam("sheetName") String sheetName,
-                              HttpSession session, Model model) throws IOException {
+                              HttpSession session, Model model) {
         byte[] fileBytes = (byte[]) session.getAttribute("fileBytes");
         String fileName = (String) session.getAttribute("fileName");
 
@@ -65,14 +70,29 @@ public class ExcelController {
             return "redirect:/";
         }
 
-        session.setAttribute("selectedSheet", sheetName);
-        Map<String, Object> sheetData = excelService.getSheetData(fileBytes, sheetName);
+        try {
+            session.setAttribute("selectedSheet", sheetName);
+            Map<String, Object> sheetData = excelService.getSheetData(fileBytes, sheetName);
 
-        model.addAttribute("sheetData", sheetData);
-        model.addAttribute("fileName", fileName);
-        model.addAttribute("sheetName", sheetName);
+            model.addAttribute("sheetData", sheetData);
+            model.addAttribute("fileName", fileName);
+            model.addAttribute("sheetName", sheetName);
 
-        return "editor";
+            return "editor";
+        } catch (Exception e) {
+            log.error("시트 로딩 실패: {}", e.getMessage(), e);
+            model.addAttribute("error", "시트를 불러오는 중 오류가 발생했습니다: " + e.getMessage());
+            // 시트 목록 페이지로 돌아가기
+            try {
+                List<String> sheetNames = excelService.getSheetNames(
+                        new java.io.ByteArrayInputStream(fileBytes));
+                model.addAttribute("sheetNames", sheetNames);
+                model.addAttribute("fileName", fileName);
+            } catch (IOException ex) {
+                return "redirect:/";
+            }
+            return "sheets";
+        }
     }
 
     /**

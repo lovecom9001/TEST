@@ -35,6 +35,8 @@
     <h1>시트 선택</h1>
     <p class="file-info" th:text="'파일: ' + ${fileName}"></p>
 
+    <div th:if="${error}" style="padding:12px 16px; background:#ffebee; color:#c62828; border-radius:8px; margin-bottom:20px; font-size:14px;" th:text="${error}"></div>
+
     <ul class="sheet-list">
         <li class="sheet-item" th:each="name : ${sheetNames}">
             <form action="/sheet" method="post" style="margin:0;">

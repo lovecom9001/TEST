@@ -71,8 +71,8 @@
                 <thead>
                     <tr>
                         <th></th>
-                        <th th:each="col : ${#numbers.sequence(0, sheetData['maxCol'] - 1)}"
-                            th:text="${T(String).valueOf((char)(65 + col))}">A</th>
+                        <th th:each="header : ${sheetData['colHeaders']}"
+                            th:text="${header}">A</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -80,7 +80,7 @@
                         <td class="row-header" th:text="${rowStat.index + 1}">1</td>
                         <td th:each="cell, colStat : ${row}">
                             <input type="text"
-                                   th:name="'cell_' + ${T(String).valueOf((char)(65 + colStat.index))} + ${rowStat.index + 1}"
+                                   th:name="'cell_' + ${sheetData['colHeaders'][colStat.index]} + ${rowStat.index + 1}"
                                    th:value="${cell}"
                                    onchange="this.classList.add('modified')">
                         </td>
