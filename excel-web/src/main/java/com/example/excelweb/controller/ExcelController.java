@@ -14,6 +14,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -158,10 +160,12 @@ public class ExcelController {
         String pdfFileName = fileName != null
                 ? fileName.replaceAll("\\.[^.]+$", "") + "_" + sheetName + ".pdf"
                 : "output.pdf";
+        String encodedPdfName = URLEncoder.encode(pdfFileName, StandardCharsets.UTF_8)
+                .replace("+", "%20");
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"" + pdfFileName + "\"")
+                        "attachment; filename=\"" + encodedPdfName + "\"; filename*=UTF-8''" + encodedPdfName)
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdfBytes);
     }
@@ -178,9 +182,13 @@ public class ExcelController {
             return ResponseEntity.badRequest().build();
         }
 
+        String safeName = fileName != null ? fileName : "output.xlsx";
+        String encodedName = URLEncoder.encode(safeName, StandardCharsets.UTF_8)
+                .replace("+", "%20");
+
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"" + (fileName != null ? fileName : "output.xlsx") + "\"")
+                        "attachment; filename=\"" + encodedName + "\"; filename*=UTF-8''" + encodedName)
                 .contentType(MediaType.parseMediaType(
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(fileBytes);
