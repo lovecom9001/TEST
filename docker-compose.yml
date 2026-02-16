@@ -1,0 +1,35 @@
+version: "3.8"
+
+services:
+  # 앱 1: Excel 자동화 + PDF 변환 (현재 브랜치)
+  excel-web:
+    build:
+      context: ./excel-web
+      dockerfile: Dockerfile
+    container_name: excel-web
+    ports:
+      - "8080:8080"
+    environment:
+      - JAVA_OPTS=-Xmx512m
+    volumes:
+      - excel-uploads:/app/uploads
+    restart: unless-stopped
+
+  # 앱 2: PDF 페이지 분할 (별도 브랜치에서 빌드)
+  # pdf-split 브랜치의 코드를 pdf-split-app/ 폴더에 넣어주세요
+  pdf-split:
+    build:
+      context: ./pdf-split-app/excel-web
+      dockerfile: Dockerfile
+    container_name: pdf-split
+    ports:
+      - "8081:8080"
+    environment:
+      - JAVA_OPTS=-Xmx512m
+    volumes:
+      - pdf-uploads:/app/uploads
+    restart: unless-stopped
+
+volumes:
+  excel-uploads:
+  pdf-uploads:
