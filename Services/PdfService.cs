@@ -36,7 +36,7 @@ namespace PDFEditor.Services
                 throw new InvalidOperationException("PDF가 로드되지 않았습니다.");
 
             // PDFtoImage를 사용하여 페이지 렌더링
-            using var bitmap = PDFtoImage.Conversion.ToImage(_currentPath, page: pageIndex, options: new RenderOptions(Dpi: 150));
+            using var bitmap = PDFtoImage.Conversion.ToImage(_currentPath, page: pageIndex, dpi: 150);
 
             var bitmapImage = new BitmapImage();
             using (var memory = new MemoryStream())
