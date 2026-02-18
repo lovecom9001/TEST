@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
+import * as pdfjsLib from 'pdfjs-dist'
+import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { Tool, Annotation } from '../types'
 import AnnotationLayer from './AnnotationLayer'
-
-// PDF.js worker 설정
-GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`
 
 interface PDFViewerProps {
   file: File
@@ -30,7 +28,7 @@ function PDFViewer({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [numPages, setNumPages] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
-  const [pdfDoc, setPdfDoc] = useState<any>(null)
+  const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null)
 
   useEffect(() => {
     const loadPDF = async () => {
@@ -38,7 +36,10 @@ function PDFViewer({
 
       fileReader.onload = async function () {
         const typedArray = new Uint8Array(this.result as ArrayBuffer)
-        const loadingTask = getDocument(typedArray)
+        const loadingTask = pdfjsLib.getDocument({
+          data: typedArray,
+          workerSrc: `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`
+        })
         const pdf = await loadingTask.promise
 
         setPdfDoc(pdf)
