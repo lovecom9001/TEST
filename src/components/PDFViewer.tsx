@@ -3,7 +3,10 @@ import * as pdfjsLib from 'pdfjs-dist'
 import { Tool, Annotation } from '../types'
 import AnnotationLayer from './AnnotationLayer'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+// PDF.js worker 설정
+if (typeof window !== 'undefined' && 'Worker' in window) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`
+}
 
 interface PDFViewerProps {
   file: File
