@@ -1,12 +1,13 @@
 using System.IO;
 using System.Windows.Media.Imaging;
-using PdfiumViewer;
+using PDFtoImage;
 using iText.Kernel.Pdf;
 using iText.Kernel.Pdf.Canvas;
 using iText.Kernel.Colors;
 using iText.Kernel.Font;
 using iText.IO.Font.Constants;
 using PDFEditor.Models;
+using SkiaSharp;
 
 namespace PDFEditor.Services
 {
@@ -31,13 +32,13 @@ namespace PDFEditor.Services
             if (_currentPath == null)
                 throw new InvalidOperationException("PDF가 로드되지 않았습니다.");
 
-            using var document = PdfiumViewer.PdfDocument.Load(_currentPath);
-            using var image = document.Render(pageIndex, 300, 300, true);
+            // PDFtoImage를 사용하여 페이지 렌더링
+            using var bitmap = PDFtoImage.Conversion.ToImage(_currentPath, page: pageIndex, dpi: 150);
 
             var bitmapImage = new BitmapImage();
             using (var memory = new MemoryStream())
             {
-                image.Save(memory, System.Drawing.Imaging.ImageFormat.Png);
+                bitmap.Encode(memory, SKEncodedImageFormat.Png, 100);
                 memory.Position = 0;
 
                 bitmapImage.BeginInit();
