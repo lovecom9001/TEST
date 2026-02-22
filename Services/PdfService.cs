@@ -63,7 +63,7 @@ namespace PDFEditor.Services
             return await Task.Run(() =>
             {
                 var base64 = Convert.ToBase64String(System.IO.File.ReadAllBytes(_currentPath));
-                using var bitmap = PDFtoImage.Conversion.ToImage(base64, (System.Index)pageIndex, null, new RenderOptions(Dpi: 150));
+                using var bitmap = PDFtoImage.Conversion.ToImage(base64, (System.Index)pageIndex, null, new RenderOptions(Dpi: 300));
                 using var ms = new MemoryStream();
                 bitmap.Encode(ms, SKEncodedImageFormat.Png, 100);
                 return ms.ToArray();

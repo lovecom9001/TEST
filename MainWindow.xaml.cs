@@ -279,10 +279,14 @@ namespace PDFEditor
                     return;
                 }
 
-                // 이미지 좌표 → 캔버스 좌표 변환
-                var bitmapSource = PdfImageView.Source as System.Windows.Media.Imaging.BitmapImage;
-                double imgW = bitmapSource?.PixelWidth ?? 1;
-                double imgH = bitmapSource?.PixelHeight ?? 1;
+                // OCR 이미지 실제 크기로 좌표 변환 (DPI 차이 보정)
+                var ocrBmp = new System.Windows.Media.Imaging.BitmapImage();
+                ocrBmp.BeginInit();
+                ocrBmp.StreamSource = new System.IO.MemoryStream(imageBytes);
+                ocrBmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                ocrBmp.EndInit();
+                double imgW = ocrBmp.PixelWidth;
+                double imgH = ocrBmp.PixelHeight;
                 double canvasW = AnnotationCanvas.ActualWidth;
                 double canvasH = AnnotationCanvas.ActualHeight;
                 double scale = Math.Min(canvasW / imgW, canvasH / imgH);
