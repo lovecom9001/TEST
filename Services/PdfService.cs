@@ -37,7 +37,7 @@ namespace PDFEditor.Services
 
             // PDFtoImage를 사용하여 페이지 렌더링 (Base64 방식)
             var base64 = Convert.ToBase64String(System.IO.File.ReadAllBytes(_currentPath));
-            using var bitmap = PDFtoImage.Conversion.ToImage(base64, (System.Index)pageIndex, new RenderOptions(Dpi: 150));
+            using var bitmap = PDFtoImage.Conversion.ToImage(base64, (System.Index)pageIndex, null, new RenderOptions(Dpi: 150));
 
             var bitmapImage = new BitmapImage();
             using (var memory = new MemoryStream())
@@ -63,7 +63,7 @@ namespace PDFEditor.Services
             return await Task.Run(() =>
             {
                 var base64 = Convert.ToBase64String(System.IO.File.ReadAllBytes(_currentPath));
-                using var bitmap = PDFtoImage.Conversion.ToImage(base64, (System.Index)pageIndex, new RenderOptions(Dpi: 150));
+                using var bitmap = PDFtoImage.Conversion.ToImage(base64, (System.Index)pageIndex, null, new RenderOptions(Dpi: 150));
                 using var ms = new MemoryStream();
                 bitmap.Encode(ms, SKEncodedImageFormat.Png, 100);
                 return ms.ToArray();
