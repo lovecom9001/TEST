@@ -108,7 +108,16 @@
                             IsEnabled="{Binding IsPdfLoaded}"/>
                     <Button Content="🔍 OCR 인식"
                             Style="{StaticResource ToolButton}"
+                            x:Name="OcrButton"
                             Click="OCR_Click"
+                            IsEnabled="{Binding IsPdfLoaded}"/>
+                    <Button Content="✅ OCR → 주석 적용"
+                            Style="{StaticResource ToolButton}"
+                            Click="ApplyOcr_Click"
+                            IsEnabled="{Binding IsPdfLoaded}"/>
+                    <Button Content="🗑️ OCR 초기화"
+                            Style="{StaticResource ToolButton}"
+                            Click="ClearOcr_Click"
                             IsEnabled="{Binding IsPdfLoaded}"/>
 
                     <Separator Margin="0,16" Background="#374151"/>
@@ -218,53 +227,6 @@
                     </Border>
                 </StackPanel>
 
-                <!-- OCR 결과 패널 -->
-                <Border Grid.Row="1"
-                        x:Name="OcrPanel"
-                        Visibility="Collapsed"
-                        Background="{StaticResource SecondaryBrush}"
-                        BorderBrush="#374151"
-                        BorderThickness="0,1,0,0"
-                        Padding="16">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="120"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-
-                        <TextBlock Grid.Row="0"
-                                  Text="OCR 인식 결과 — 수정 후 주석으로 추가하세요"
-                                  FontSize="13"
-                                  FontWeight="SemiBold"
-                                  Foreground="{StaticResource TextBrush}"
-                                  Margin="0,0,0,8"/>
-
-                        <TextBox Grid.Row="1"
-                                 x:Name="OcrTextBox"
-                                 Background="{StaticResource SurfaceBrush}"
-                                 Foreground="{StaticResource TextBrush}"
-                                 BorderBrush="#374151"
-                                 AcceptsReturn="True"
-                                 TextWrapping="Wrap"
-                                 VerticalScrollBarVisibility="Auto"
-                                 Padding="8"
-                                 FontSize="13"/>
-
-                        <StackPanel Grid.Row="2"
-                                   Orientation="Horizontal"
-                                   HorizontalAlignment="Right"
-                                   Margin="0,8,0,0">
-                            <Button Content="주석으로 추가"
-                                   Style="{StaticResource ModernButton}"
-                                   Margin="0,0,8,0"
-                                   Click="AddOcrText_Click"/>
-                            <Button Content="닫기"
-                                   Style="{StaticResource ModernButton}"
-                                   Click="CloseOcr_Click"/>
-                        </StackPanel>
-                    </Grid>
-                </Border>
             </Grid>
         </Grid>
     </Grid>

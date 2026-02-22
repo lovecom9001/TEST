@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Windows.Graphics.Imaging;
@@ -6,9 +7,18 @@ using Windows.Media.Ocr;
 
 namespace PDFEditor.Services
 {
+    public class OcrTextBlock
+    {
+        public string Text { get; set; } = "";
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Width { get; set; }
+        public double Height { get; set; }
+    }
+
     public class OcrService
     {
-        public async Task<string> RecognizeTextAsync(byte[] imageBytes)
+        public async Task<List<OcrTextBlock>> RecognizeWithPositionsAsync(byte[] imageBytes)
         {
             using var ms = new MemoryStream(imageBytes);
             var randomAccessStream = ms.AsRandomAccessStream();
@@ -21,8 +31,6 @@ namespace PDFEditor.Services
                 BitmapAlphaMode.Premultiplied);
 
             OcrEngine? engine = null;
-
-            // 한국어 우선 시도
             try
             {
                 var korean = new Windows.Globalization.Language("ko");
@@ -30,8 +38,6 @@ namespace PDFEditor.Services
                     engine = OcrEngine.TryCreateFromLanguage(korean);
             }
             catch { }
-
-            // 시스템 언어로 대체
             engine ??= OcrEngine.TryCreateFromUserProfileLanguages();
 
             if (engine == null)
@@ -40,7 +46,20 @@ namespace PDFEditor.Services
                     "Windows 설정 > 시간 및 언어 > 언어에서 언어팩을 설치해주세요.");
 
             var result = await engine.RecognizeAsync(convertedBitmap);
-            return result.Text;
+
+            var blocks = new List<OcrTextBlock>();
+            foreach (var line in result.Lines)
+            {
+                blocks.Add(new OcrTextBlock
+                {
+                    Text = line.Text,
+                    X = line.BoundingRect.X,
+                    Y = line.BoundingRect.Y,
+                    Width = line.BoundingRect.Width,
+                    Height = line.BoundingRect.Height
+                });
+            }
+            return blocks;
         }
     }
 }

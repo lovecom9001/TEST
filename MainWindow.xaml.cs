@@ -16,6 +16,7 @@ namespace PDFEditor
         private MainViewModel _viewModel;
         private PdfService _pdfService;
         private OcrService _ocrService;
+        private readonly List<TextBox> _ocrOverlays = new();
         private string? _currentTool = "Select";
         private string _selectedColor = "#000000";
 
@@ -255,11 +256,54 @@ namespace PDFEditor
 
             try
             {
-                var imageBytes = await _pdfService.RenderPageToBytesAsync(_viewModel.CurrentPage - 1);
-                var text = await _ocrService.RecognizeTextAsync(imageBytes);
+                ClearOcrOverlays();
 
-                OcrTextBox.Text = string.IsNullOrWhiteSpace(text) ? "(인식된 텍스트 없음)" : text;
-                OcrPanel.Visibility = System.Windows.Visibility.Visible;
+                var imageBytes = await _pdfService.RenderPageToBytesAsync(_viewModel.CurrentPage - 1);
+                var blocks = await _ocrService.RecognizeWithPositionsAsync(imageBytes);
+
+                if (blocks.Count == 0)
+                {
+                    MessageBox.Show("인식된 텍스트가 없습니다.", "OCR 결과", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                // 이미지 좌표 → 캔버스 좌표 변환
+                var bitmapSource = PdfImageView.Source as System.Windows.Media.Imaging.BitmapImage;
+                double imgW = bitmapSource?.PixelWidth ?? 1;
+                double imgH = bitmapSource?.PixelHeight ?? 1;
+                double canvasW = AnnotationCanvas.ActualWidth;
+                double canvasH = AnnotationCanvas.ActualHeight;
+                double scale = Math.Min(canvasW / imgW, canvasH / imgH);
+                double offsetX = (canvasW - imgW * scale) / 2;
+                double offsetY = (canvasH - imgH * scale) / 2;
+
+                foreach (var block in blocks)
+                {
+                    double x = block.X * scale + offsetX;
+                    double y = block.Y * scale + offsetY;
+                    double w = block.Width * scale;
+                    double h = block.Height * scale;
+                    double fontSize = Math.Max(8, h * 0.72);
+
+                    var textBox = new TextBox
+                    {
+                        Text = block.Text,
+                        FontSize = fontSize,
+                        Background = new SolidColorBrush(Color.FromArgb(120, 255, 255, 100)),
+                        BorderBrush = new SolidColorBrush(Color.FromArgb(200, 255, 165, 0)),
+                        BorderThickness = new Thickness(1),
+                        Foreground = new SolidColorBrush(Colors.Black),
+                        Padding = new Thickness(2),
+                        MinWidth = w,
+                        Height = h + 6,
+                        Tag = fontSize
+                    };
+
+                    Canvas.SetLeft(textBox, x);
+                    Canvas.SetTop(textBox, y);
+                    AnnotationCanvas.Children.Add(textBox);
+                    _ocrOverlays.Add(textBox);
+                }
             }
             catch (Exception ex)
             {
@@ -272,42 +316,50 @@ namespace PDFEditor
             }
         }
 
-        private void AddOcrText_Click(object sender, RoutedEventArgs e)
+        private void ApplyOcr_Click(object sender, RoutedEventArgs e)
         {
-            var text = OcrTextBox.Text;
-            if (string.IsNullOrWhiteSpace(text)) return;
-
-            var textBlock = new TextBlock
+            foreach (var textBox in _ocrOverlays.ToList())
             {
-                Text = text,
-                FontSize = FontSizeSlider.Value,
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(_selectedColor)),
-                FontWeight = FontWeights.Normal,
-                TextWrapping = TextWrapping.Wrap,
-                MaxWidth = 500
-            };
+                if (string.IsNullOrWhiteSpace(textBox.Text)) continue;
 
-            Canvas.SetLeft(textBlock, 20);
-            Canvas.SetTop(textBlock, 20);
-            AnnotationCanvas.Children.Add(textBlock);
+                var x = Canvas.GetLeft(textBox);
+                var y = Canvas.GetTop(textBox);
+                var fontSize = textBox.Tag is double fs ? fs : 14.0;
 
-            _viewModel.Annotations.Add(new Annotation
-            {
-                Type = "Text",
-                Page = _viewModel.CurrentPage,
-                X = 20,
-                Y = 20,
-                Text = text,
-                Color = _selectedColor,
-                FontSize = FontSizeSlider.Value
-            });
+                var textBlock = new TextBlock
+                {
+                    Text = textBox.Text,
+                    FontSize = fontSize,
+                    Foreground = new SolidColorBrush(Colors.Black),
+                    TextWrapping = TextWrapping.NoWrap
+                };
 
-            OcrPanel.Visibility = System.Windows.Visibility.Collapsed;
+                Canvas.SetLeft(textBlock, x);
+                Canvas.SetTop(textBlock, y);
+                AnnotationCanvas.Children.Remove(textBox);
+                AnnotationCanvas.Children.Add(textBlock);
+
+                _viewModel.Annotations.Add(new Annotation
+                {
+                    Type = "Text",
+                    Page = _viewModel.CurrentPage,
+                    X = x,
+                    Y = y,
+                    Text = textBox.Text,
+                    Color = "#000000",
+                    FontSize = fontSize
+                });
+            }
+            _ocrOverlays.Clear();
         }
 
-        private void CloseOcr_Click(object sender, RoutedEventArgs e)
+        private void ClearOcr_Click(object sender, RoutedEventArgs e) => ClearOcrOverlays();
+
+        private void ClearOcrOverlays()
         {
-            OcrPanel.Visibility = System.Windows.Visibility.Collapsed;
+            foreach (var tb in _ocrOverlays)
+                AnnotationCanvas.Children.Remove(tb);
+            _ocrOverlays.Clear();
         }
 
         private void Undo_Click(object sender, RoutedEventArgs e)
@@ -334,6 +386,7 @@ namespace PDFEditor
         {
             if (_viewModel.CurrentPage > 1)
             {
+                ClearOcrOverlays();
                 _viewModel.CurrentPage--;
                 RenderCurrentPage();
             }
@@ -343,6 +396,7 @@ namespace PDFEditor
         {
             if (_viewModel.CurrentPage < _viewModel.TotalPages)
             {
+                ClearOcrOverlays();
                 _viewModel.CurrentPage++;
                 RenderCurrentPage();
             }
