@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Windows.Graphics.Imaging;
 using Windows.Media.Ocr;
@@ -50,13 +51,21 @@ namespace PDFEditor.Services
             var blocks = new List<OcrTextBlock>();
             foreach (var line in result.Lines)
             {
+                if (line.Words.Count == 0) continue;
+
+                // OcrLine에는 BoundingRect가 없으므로 Words에서 계산
+                double x = line.Words.Min(w => w.BoundingRect.X);
+                double y = line.Words.Min(w => w.BoundingRect.Y);
+                double right = line.Words.Max(w => w.BoundingRect.X + w.BoundingRect.Width);
+                double bottom = line.Words.Max(w => w.BoundingRect.Y + w.BoundingRect.Height);
+
                 blocks.Add(new OcrTextBlock
                 {
                     Text = line.Text,
-                    X = line.BoundingRect.X,
-                    Y = line.BoundingRect.Y,
-                    Width = line.BoundingRect.Width,
-                    Height = line.BoundingRect.Height
+                    X = x,
+                    Y = y,
+                    Width = right - x,
+                    Height = bottom - y
                 });
             }
             return blocks;

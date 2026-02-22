@@ -37,7 +37,7 @@ namespace PDFEditor.Services
 
             // PDFtoImage를 사용하여 페이지 렌더링 (Stream 방식)
             using var stream = System.IO.File.OpenRead(_currentPath);
-            using var bitmap = PDFtoImage.Conversion.ToImage(stream, index: pageIndex, options: new RenderOptions(Dpi: 150));
+            using var bitmap = PDFtoImage.Conversion.ToImage(stream, index: (System.Index)pageIndex, options: new RenderOptions(Dpi: 150));
 
             var bitmapImage = new BitmapImage();
             using (var memory = new MemoryStream())
@@ -63,7 +63,7 @@ namespace PDFEditor.Services
             return await Task.Run(() =>
             {
                 using var fileStream = System.IO.File.OpenRead(_currentPath);
-                using var bitmap = PDFtoImage.Conversion.ToImage(fileStream, index: pageIndex, options: new RenderOptions(Dpi: 150));
+                using var bitmap = PDFtoImage.Conversion.ToImage(fileStream, index: (System.Index)pageIndex, options: new RenderOptions(Dpi: 150));
                 using var ms = new MemoryStream();
                 bitmap.Encode(ms, SKEncodedImageFormat.Png, 100);
                 return ms.ToArray();
