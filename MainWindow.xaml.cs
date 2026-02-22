@@ -18,6 +18,7 @@ namespace PDFEditor
         private PdfService _pdfService;
         private OcrService _ocrService;
         private readonly List<TextBox> _ocrOverlays = new();
+        private double _pdfScale = 1.0;
         private string? _currentTool = "Select";
         private string _selectedColor = "#000000";
 
@@ -84,6 +85,16 @@ namespace PDFEditor
                     MessageBox.Show($"PDF를 저장할 수 없습니다: {ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
+        }
+
+        private void PdfViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (Keyboard.Modifiers != ModifierKeys.Control) return;
+            e.Handled = true;
+
+            _pdfScale = Math.Clamp(_pdfScale + (e.Delta > 0 ? 0.1 : -0.1), 0.25, 4.0);
+            PdfScaleTransform.ScaleX = _pdfScale;
+            PdfScaleTransform.ScaleY = _pdfScale;
         }
 
         private void Tool_Click(object sender, RoutedEventArgs e)

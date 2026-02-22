@@ -167,7 +167,14 @@
                         Background="White"
                         CornerRadius="8"
                         Effect="{DynamicResource DropShadow}">
+                    <ScrollViewer x:Name="PdfScrollViewer"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  PreviewMouseWheel="PdfViewer_PreviewMouseWheel">
                     <Grid>
+                        <Grid.LayoutTransform>
+                            <ScaleTransform x:Name="PdfScaleTransform" ScaleX="1" ScaleY="1"/>
+                        </Grid.LayoutTransform>
                         <!-- PDF 표시 영역 -->
                         <Image x:Name="PdfImageView"
                               Stretch="Uniform"
@@ -195,6 +202,7 @@
                                Background="Transparent"
                                MouseLeftButtonDown="Canvas_MouseLeftButtonDown"/>
                     </Grid>
+                    </ScrollViewer>
                 </Border>
 
                 <!-- 페이지 네비게이션 -->
