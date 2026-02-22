@@ -242,6 +242,26 @@ namespace PDFEditor
             }
         }
 
+        private void Undo_Click(object sender, RoutedEventArgs e)
+        {
+            // 현재 페이지의 마지막 주석 제거
+            var lastAnnotation = _viewModel.Annotations
+                .Where(a => a.Page == _viewModel.CurrentPage)
+                .LastOrDefault();
+
+            if (lastAnnotation != null)
+            {
+                _viewModel.Annotations.Remove(lastAnnotation);
+
+                // 캔버스 다시 그리기
+                AnnotationCanvas.Children.Clear();
+                foreach (var annotation in _viewModel.Annotations.Where(a => a.Page == _viewModel.CurrentPage))
+                {
+                    RenderAnnotation(annotation);
+                }
+            }
+        }
+
         private void PreviousPage_Click(object sender, RoutedEventArgs e)
         {
             if (_viewModel.CurrentPage > 1)

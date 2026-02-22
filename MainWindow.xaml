@@ -102,6 +102,13 @@
 
                     <Separator Margin="0,16" Background="#374151"/>
 
+                    <Button Content="↩ 실행 취소"
+                            Style="{StaticResource ToolButton}"
+                            Click="Undo_Click"
+                            IsEnabled="{Binding IsPdfLoaded}"/>
+
+                    <Separator Margin="0,16" Background="#374151"/>
+
                     <TextBlock Text="색상"
                               FontSize="14"
                               FontWeight="SemiBold"
