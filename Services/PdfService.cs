@@ -55,6 +55,21 @@ namespace PDFEditor.Services
             return bitmapImage;
         }
 
+        public async Task<byte[]> RenderPageToBytesAsync(int pageIndex)
+        {
+            if (_currentPath == null)
+                throw new InvalidOperationException("PDF가 로드되지 않았습니다.");
+
+            return await Task.Run(() =>
+            {
+                using var fileStream = System.IO.File.OpenRead(_currentPath);
+                using var bitmap = PDFtoImage.Conversion.ToImage(fileStream, page: pageIndex, options: new RenderOptions(Dpi: 150));
+                using var ms = new MemoryStream();
+                bitmap.Encode(ms, SKEncodedImageFormat.Png, 100);
+                return ms.ToArray();
+            });
+        }
+
         public async Task SavePdfAsync(string inputPath, string outputPath, IEnumerable<Annotation> annotations)
         {
             await Task.Run(() =>

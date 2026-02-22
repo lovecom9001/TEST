@@ -15,6 +15,7 @@ namespace PDFEditor
     {
         private MainViewModel _viewModel;
         private PdfService _pdfService;
+        private OcrService _ocrService;
         private string? _currentTool = "Select";
         private string _selectedColor = "#000000";
 
@@ -23,6 +24,7 @@ namespace PDFEditor
             InitializeComponent();
             _viewModel = (MainViewModel)DataContext;
             _pdfService = new PdfService();
+            _ocrService = new OcrService();
         }
 
         private async void OpenPDF_Click(object sender, RoutedEventArgs e)
@@ -240,6 +242,72 @@ namespace PDFEditor
                     FontSize = 24
                 });
             }
+        }
+
+        private async void OCR_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_viewModel.IsPdfLoaded) return;
+
+            var button = (Button)sender;
+            var originalContent = button.Content;
+            button.IsEnabled = false;
+            button.Content = "🔍 인식 중...";
+
+            try
+            {
+                var imageBytes = await _pdfService.RenderPageToBytesAsync(_viewModel.CurrentPage - 1);
+                var text = await _ocrService.RecognizeTextAsync(imageBytes);
+
+                OcrTextBox.Text = string.IsNullOrWhiteSpace(text) ? "(인식된 텍스트 없음)" : text;
+                OcrPanel.Visibility = System.Windows.Visibility.Visible;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"OCR 오류: {ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                button.Content = originalContent;
+                button.IsEnabled = true;
+            }
+        }
+
+        private void AddOcrText_Click(object sender, RoutedEventArgs e)
+        {
+            var text = OcrTextBox.Text;
+            if (string.IsNullOrWhiteSpace(text)) return;
+
+            var textBlock = new TextBlock
+            {
+                Text = text,
+                FontSize = FontSizeSlider.Value,
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(_selectedColor)),
+                FontWeight = FontWeights.Normal,
+                TextWrapping = TextWrapping.Wrap,
+                MaxWidth = 500
+            };
+
+            Canvas.SetLeft(textBlock, 20);
+            Canvas.SetTop(textBlock, 20);
+            AnnotationCanvas.Children.Add(textBlock);
+
+            _viewModel.Annotations.Add(new Annotation
+            {
+                Type = "Text",
+                Page = _viewModel.CurrentPage,
+                X = 20,
+                Y = 20,
+                Text = text,
+                Color = _selectedColor,
+                FontSize = FontSizeSlider.Value
+            });
+
+            OcrPanel.Visibility = System.Windows.Visibility.Collapsed;
+        }
+
+        private void CloseOcr_Click(object sender, RoutedEventArgs e)
+        {
+            OcrPanel.Visibility = System.Windows.Visibility.Collapsed;
         }
 
         private void Undo_Click(object sender, RoutedEventArgs e)
